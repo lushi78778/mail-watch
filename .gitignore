@@ -8,8 +8,7 @@ pnpm-debug.log*
 
 # Env
 .env
-frontend/.env
-frontend/.env.local
+config.local.json
 
 # Vite
 dist/

@@ -1,0 +1,24 @@
+# 依赖目录与调试日志
+node_modules
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# 构建产物
+dist
+
+# 版本控制
+.git
+.gitignore
+
+# 环境变量与本地配置（避免将敏感信息打包进镜像）
+.env
+.env.*
+
+# 操作系统杂项
+.DS_Store
+
+# Docker 相关文件本身
+Dockerfile
+docker-compose.yml

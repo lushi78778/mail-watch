@@ -1,28 +1,17 @@
-version: '3.8'
-
 services:
-  backend:
-    build: ./backend
+  mailwatch:
+    build: .
+    container_name: mailwatch
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    # 通过 .env 文件或下方 environment 注入敏感环境变量
     env_file:
       - .env
-    ports:
-      - "${PORT:-3001}:3001"
-    restart: unless-stopped
-    networks:
-      - mailwatch
-
-  frontend:
-    build: ./frontend
+    # 如需自定义配置，可挂载本地配置文件覆盖默认 config.json
+    volumes:
+      - ./config.local.json:/app/config.local.json:ro
     environment:
-      - VITE_BACKEND_PROXY=http://backend:3001
-      - VITE_ACCESS_KEY=${FRONTEND_KEY}
-    ports:
-      - "3000:3000"
-    depends_on:
-      - backend
-    restart: unless-stopped
-    networks:
-      - mailwatch
-
-networks:
-  mailwatch:
+      # 保证容器内为生产模式
+      - NODE_ENV=production
+    # 健康检查已在 Dockerfile 中定义，无需在 Compose 再次定义
