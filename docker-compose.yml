@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  backend:
+    build: ./backend
+    env_file:
+      - .env
+    ports:
+      - "${PORT:-3001}:3001"
+    restart: unless-stopped
+    networks:
+      - mailwatch
+
+  frontend:
+    build: ./frontend
+    environment:
+      - VITE_BACKEND_PROXY=http://backend:3001
+      - VITE_ACCESS_KEY=${FRONTEND_KEY}
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - mailwatch
+
+networks:
+  mailwatch:
