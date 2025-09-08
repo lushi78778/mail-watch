@@ -26,25 +26,27 @@ function loadConfig() {
     }
   }
 
-  // Server 基本配置
+  // Server 基本配置（支持环境变量覆盖）
   const server = {
-    port: Number(cfg.server?.port || 3001),
+    port: Number(process.env.PORT || process.env.SERVER_PORT || cfg.server?.port || 3001),
   };
 
-  // IMAP 连接配置（密码仅从环境读取）
+  // IMAP 连接配置（支持环境变量覆盖；密码仅从环境读取）
   const imap = {
-    host: cfg.imap?.host || null,
-    port: Number(cfg.imap?.port || 993),
-    tls: cfg.imap?.tls !== false,
-    user: cfg.imap?.user || null,
+    host: process.env.IMAP_HOST || cfg.imap?.host || null,
+    port: Number(process.env.IMAP_PORT || cfg.imap?.port || 993),
+    tls: (process.env.IMAP_TLS ?? '') !== ''
+      ? String(process.env.IMAP_TLS).toLowerCase() !== 'false'
+      : cfg.imap?.tls !== false,
+    user: process.env.IMAP_USER || cfg.imap?.user || null,
     pass: process.env.EMAIL_PASS, // sensitive
   };
 
-  // 业务过滤配置
+  // 业务过滤配置（支持环境变量覆盖）
   const filter = {
-    titleRegex: cfg.filter?.titleRegex || '',
+    titleRegex: process.env.TITLE_REGEX || cfg.filter?.titleRegex || '',
     // 最近 N 天的邮件用于搜索窗口（避免大邮箱全量搜索），默认 7 天
-    recentDays: Number(cfg.filter?.recentDays || 7),
+    recentDays: Number(process.env.RECENT_DAYS || cfg.filter?.recentDays || 7),
   };
 
   // 会话配置
