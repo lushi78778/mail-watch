@@ -120,19 +120,9 @@ npm run dev
 - 生产强制要求设置 `FRONTEND_KEY`，否则服务退出。
 - 会话 Cookie 为 `HttpOnly`、`SameSite=Lax`，在 HTTPS 环境自动加 `Secure`（反向代理场景下已启用 `trust proxy`）。
 - 容器内以非 root 用户运行。
-- 内存限流按 IP 计数，适用于单实例。多实例需迁移到共享存储（如 Redis）或由网关统一限流。
+- 内存限流按 IP 计数，适用于单实例。
 - UI 提供 Cookie 同意提示：仅使用必要会话 Cookie（访问控制），不做追踪或广告。
 
-## 性能建议
-
-- 大邮箱场景下，使用 `filter.recentDays` 限定搜索窗口（默认 7 天），避免全量搜索。
-- `limit` 合理设置（SSR 首页默认 10，API 默认 50，上限 500）。
-
-## 部署建议
-
-- 建议置于反向代理（Nginx/Traefik/Caddy）后，并终结 TLS。
-- 暴露端口映射可在 `docker-compose.yml` 调整：`- "3001:3001"`。
-- 可选加固（Compose）：`read_only: true`、`security_opt: ["no-new-privileges:true"]`、`tmpfs: [/tmp]`。
 
 ## 故障排查
 
