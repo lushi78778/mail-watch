@@ -1,7 +1,7 @@
 ## 应用镜像构建文件（多阶段构建）
 
 # 1) 构建阶段
-FROM node:20-alpine AS build
+FROM node:25.4.0-alpine AS build
 WORKDIR /app
 
 COPY package*.json ./
@@ -11,7 +11,7 @@ COPY . .
 RUN npm run build
 
 # 2) 运行阶段
-FROM node:20-alpine AS runner
+FROM node:25.4.0-alpine AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
