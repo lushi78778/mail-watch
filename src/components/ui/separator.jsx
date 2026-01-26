@@ -2,7 +2,7 @@
 import * as React from 'react'
 import { cn } from '../../lib/utils'
 
-// 分割线：方向参数控制水平或垂直，装饰模式仅作视觉用途
+// Separator：orientation 控制方向，decorative=true 仅作视觉用途
 const Separator = React.forwardRef(({ className, orientation = 'horizontal', decorative = true, ...props }, ref) => (
   <div
     ref={ref}

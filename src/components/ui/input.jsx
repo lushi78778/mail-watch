@@ -1,9 +1,9 @@
-// 输入框组件（简化版）
+// 输入框组件（shadcn 风格简化版）
 // - 提供一致的边框、圆角与焦点态
 import * as React from 'react'
 import { cn } from '../../lib/utils'
 
-// 输入框：支持传入常规属性
+// Input：支持传入 type/className 等常规属性
 const Input = React.forwardRef(({ className, type = 'text', ...props }, ref) => (
   <input
     type={type}

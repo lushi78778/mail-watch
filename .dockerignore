@@ -19,10 +19,6 @@ dist
 # 操作系统杂项
 .DS_Store
 
-# 编辑器配置
-.vscode
-.idea
-
-# 容器构建相关文件
+# Docker 相关文件本身
 Dockerfile
 docker-compose.yml

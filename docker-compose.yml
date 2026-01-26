@@ -5,7 +5,13 @@ services:
     restart: unless-stopped
     ports:
       - "3001:3001"
+    # 通过 .env 文件或下方 environment 注入敏感环境变量
     env_file:
       - .env
+    # 如需自定义配置，可挂载本地配置文件覆盖默认 config.json
+    volumes:
+      - ./config.local.json:/app/config.local.json:ro
     environment:
+      # 保证容器内为生产模式
       - NODE_ENV=production
+    # 健康检查已在 Dockerfile 中定义，无需在 Compose 再次定义

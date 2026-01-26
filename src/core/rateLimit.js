@@ -1,6 +1,6 @@
-// 简易内存限流（按来源地址）：
-// - 最大次数：时间窗口内允许次数
-// - 窗口时长：时间窗口（毫秒）
+// 简易内存限流（按 IP）：
+// - max: 时间窗口内允许次数
+// - windowMs: 时间窗口（毫秒）
 function createRateLimiter(max, windowMs) {
   const hits = new Map();
   return (req, res, next) => {

@@ -1,7 +1,6 @@
 // 会话管理（内存存储）：
-// - 仅下发浏览器会话标记，前端脚本不可读
-// - 同站策略为宽松模式，生产环境走安全通道
-// - 简化实现，适合单实例；多实例请替换为共享存储
+// - 仅发放 HttpOnly Cookie（SameSite=Lax），生产 HTTPS 自动加 Secure
+// - 简化实现，适合单实例；多实例请替换为 Redis 等共享存储
 const crypto = require('crypto');
 
 function makeSid() {
@@ -18,7 +17,7 @@ function getCookies(req) {
   return out;
 }
 
-// 设置会话标记，避免被前端脚本读取
+// 设置会话 Cookie（HttpOnly，避免被 JS 读取）
 function setSessionCookie(res, sid, req, { cookieName, ttlMs }) {
   const isProd = process.env.NODE_ENV === 'production';
   const secure = isProd && (req?.secure || req?.headers?.['x-forwarded-proto'] === 'https');
@@ -33,7 +32,7 @@ function setSessionCookie(res, sid, req, { cookieName, ttlMs }) {
   res.setHeader('Set-Cookie', attrs.join('; '));
 }
 
-// 使会话标记立即过期
+// 使 Cookie 立即过期
 function clearSessionCookie(res, { cookieName }) {
   res.setHeader('Set-Cookie', `${cookieName}=; HttpOnly; Path=/; SameSite=Lax; Max-Age=0`);
 }
@@ -54,7 +53,7 @@ function getSession(req, store, { cookieName, ttlMs }) {
   return { sid, ...s };
 }
 
-// 中间件：需要有效会话（未配置密钥则跳过）
+// 中间件：需要有效会话（若未配置 accessKey 则跳过）
 function requireSession(store, { accessKey }, opts) {
   return function (req, res, next) {
     if (!accessKey) return next();
