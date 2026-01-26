@@ -1,6 +1,6 @@
-// SSR 集成：
-// - 开发：接入 Vite 中间件，支持 HMR 与模板转换
-// - 生产：读取 dist/client + dist/server 产物进行渲染
+// 服务端渲染集成：
+// - 开发：接入构建工具中间件，支持热更新与模板转换
+// - 生产：读取构建产物进行渲染
 const fs = require('fs');
 const path = require('path');
 
@@ -24,7 +24,7 @@ async function setupSSR(app) {
     prodRender = mod.render;
   }
 
-  // 根据环境选择模板与渲染器，返回最终 HTML
+  // 根据环境选择模板与渲染器，返回最终页面
   async function render(url, initialState) {
     let template;
     let render;

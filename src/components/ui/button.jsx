@@ -1,11 +1,11 @@
-// 按钮组件（shadcn 风格简化版）
-// - 使用 class-variance-authority 管理不同外观与尺寸变体
-// - 通过 cn() 合并 Tailwind 类名
+// 按钮组件（简化版）
+// - 使用变体工具管理外观与尺寸
+// - 通过工具函数合并类名
 import * as React from 'react'
 import { cva } from 'class-variance-authority'
 import { cn } from '../../lib/utils'
 
-// 定义变体：variant + size
+// 定义变体：外观与尺寸
 const buttonVariants = cva(
   'inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50',
   {
@@ -29,7 +29,7 @@ const buttonVariants = cva(
   },
 )
 
-// Button 组件：根据传入的 variant/size 组合类名
+// 按钮组件：根据传入的外观与尺寸组合类名
 const Button = React.forwardRef(({ className, variant, size, ...props }, ref) => (
   <button ref={ref} className={cn(buttonVariants({ variant, size, className }))} {...props} />
 ))
