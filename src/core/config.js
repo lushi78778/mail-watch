@@ -1,65 +1,32 @@
-// 配置加载与合并（非敏感项从文件读取，敏感项来自环境变量）
-const fs = require('fs');
-const path = require('path');
-
-// 读取 JSON 配置（容错）
-function loadJsonSafe(p) {
-  try {
-    return JSON.parse(fs.readFileSync(p, 'utf-8')) || {};
-  } catch (e) {
-    console.error('Failed to parse JSON config:', p, e.message);
-    return {};
-  }
-}
-
-// 加载顺序：config.local.json > config.json
+// 配置加载与合并（全部来自环境变量）
 function loadConfig() {
-  const candidates = [
-    path.resolve(process.cwd(), 'config.local.json'),
-    path.resolve(process.cwd(), 'config.json'),
-  ];
-  let cfg = {};
-  for (const p of candidates) {
-    if (fs.existsSync(p)) {
-      cfg = loadJsonSafe(p);
-      break;
-    }
-  }
-
-  // Server 基本配置（支持环境变量覆盖）
+  // 服务端基础配置
   const server = {
-    port: Number(process.env.PORT || process.env.SERVER_PORT || cfg.server?.port || 3001),
+    port: Number(process.env.PORT || process.env.SERVER_PORT || 3001),
   };
 
-  // IMAP 连接配置（支持环境变量覆盖；密码仅从环境读取）
+  // 邮件连接配置（密码仅从环境读取）
   const imap = {
-    host: process.env.IMAP_HOST || cfg.imap?.host || null,
-    port: Number(process.env.IMAP_PORT || cfg.imap?.port || 993),
+    host: process.env.IMAP_HOST || null,
+    port: Number(process.env.IMAP_PORT || 993),
     tls: (process.env.IMAP_TLS ?? '') !== ''
       ? String(process.env.IMAP_TLS).toLowerCase() !== 'false'
-      : cfg.imap?.tls !== false,
-    user: process.env.IMAP_USER || cfg.imap?.user || null,
-    pass: process.env.EMAIL_PASS, // sensitive
-  };
-
-  // 业务过滤配置（支持环境变量覆盖）
-  const filter = {
-    titleRegex: process.env.TITLE_REGEX || cfg.filter?.titleRegex || '',
-    // 最近 N 天的邮件用于搜索窗口（避免大邮箱全量搜索），默认 7 天
-    recentDays: Number(process.env.RECENT_DAYS || cfg.filter?.recentDays || 7),
+      : true,
+    user: process.env.IMAP_USER || null,
+    pass: process.env.EMAIL_PASS, // 敏感项
   };
 
   // 会话配置
   const session = {
-    cookieName: cfg.session?.cookieName || 'mw_sid',
-    ttlMs: Number(cfg.session?.ttlMs || 5 * 60 * 1000),
+    cookieName: process.env.SESSION_COOKIE_NAME || 'mw_sid',
+    ttlMs: Number(process.env.SESSION_TTL_MS || 5 * 60 * 1000),
   };
 
-  // 限流配置（按 IP）
+  // 限流配置（按来源地址）
   const rateLimit = {
-    windowMs: Number(cfg.rateLimit?.windowMs || 60_000),
-    api: Number(cfg.rateLimit?.api || 60),
-    ssr: Number(cfg.rateLimit?.ssr || 30),
+    windowMs: Number(process.env.RATE_LIMIT_WINDOW_MS || 60_000),
+    api: Number(process.env.RATE_LIMIT_API || 60),
+    ssr: Number(process.env.RATE_LIMIT_SSR || 30),
   };
 
   // 敏感项
@@ -67,7 +34,28 @@ function loadConfig() {
     accessKey: (process.env.FRONTEND_KEY || '').toString().trim(),
   };
 
-  return { server, imap, filter, session, rateLimit, secrets };
+  // 模型配置（仅环境变量）
+  const ai = {
+    baseUrl: process.env.AI_BASE_URL || 'https://api.deepseek.com',
+    apiKey: process.env.AI_API_KEY || '',
+    model: process.env.AI_MODEL || 'deepseek-chat',
+    prompt: process.env.AI_PROMPT || '',
+    timeoutMs: Number(process.env.AI_TIMEOUT_MS || 15_000),
+    log: String(process.env.AI_LOG || '').toLowerCase() === 'true',
+    maxTokens: Number(process.env.AI_MAX_TOKENS || 128),
+    payloadMax: Number(process.env.AI_PAYLOAD_MAX || 2000),
+    disableCache: String(process.env.AI_DISABLE_CACHE || '').toLowerCase() === 'true',
+    subjectWhitelist: String(process.env.AI_SUBJECT_WHITELIST || '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean),
+  };
+
+  const log = {
+    perf: String(process.env.PERF_LOG || '').toLowerCase() === 'true',
+  };
+
+  return { server, imap, session, rateLimit, secrets, ai, log };
 }
 
 module.exports = { loadConfig };
