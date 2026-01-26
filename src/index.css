@@ -1,9 +1,9 @@
-/* Tailwind 层次引入：基础 → 组件 → 工具 */
+/* 样式层次引入：基础 → 组件 → 工具 */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* CSS 变量（与 shadcn 设计系统一致） */
+/* 样式变量（与现有设计系统一致） */
 :root {
   --background: 0 0% 100%;
   --foreground: 222.2 84% 4.9%;
