@@ -1,46 +1,27 @@
-// 应用主页面（SSR 首屏 + 客户端水合）
+// 应用主页面（服务端首屏 + 客户端水合）
 // 职责：
-// - 展示最新邮件列表（与后端 /api/messages 对接）
-// - 支持设置条数并手动刷新
-// - SSR 会注入 initialState，首屏无需再拉取数据
-import React, { useEffect, useMemo, useState } from 'react'
+// - 展示最新邮件列表（服务端渲染）
+// - 支持整页刷新重新加载
+// - 服务端会注入初始状态，首屏无需再拉取数据
+import React, { useEffect, useState } from 'react'
 import { Button } from './components/ui/button'
-import { Input } from './components/ui/input'
 import { Card, CardContent } from './components/ui/card'
 import { Separator } from './components/ui/separator'
 import { Alert, AlertDescription, AlertTitle } from './components/ui/alert'
 import { Mail, RefreshCcw, Clock, User, ShieldAlert } from 'lucide-react'
 import './index.css'
 
-// 简单的 JSON 请求工具（抛错即显示到 UI）
-async function fetchJSON(url) {
-  const res = await fetch(url)
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`)
-  return res.json()
-}
-
 export function App({ initialState = {} }) {
-  const [config, setConfig] = useState(initialState.config || null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState(initialState.error || null)
-  const [limit, setLimit] = useState(initialState.limit || 10)
-  const [items, setItems] = useState(initialState.items || [])
+  const config = initialState.config || null
+  const error = initialState.error || null
+  const items = initialState.items || []
   const allowed = initialState.allowed !== false
   const hasKeyConfigured = !!initialState.hasKeyConfigured
-  // Cookie 同意（仅信息性提示，唯一 Cookie 为必要会话 Cookie）
+  const [copiedUid, setCopiedUid] = useState(null)
+  // 会话提示（仅信息性提示，唯一会话用于访问控制）
   const [consented, setConsented] = useState(true)
 
-  const regexText = useMemo(
-    () => (config?.titleRegex ? String(config.titleRegex) : '（未配置，显示全部）'),
-    [config]
-  )
-
-  // 客户端挂载后刷新配置（SSR 已注入也不影响）
-  useEffect(() => {
-    fetchJSON('/api/config').then(setConfig).catch(() => {})
-  }, [])
-
-  // 客户端检查本地是否已同意 Cookie 提示
+  // 客户端检查本地是否已同意会话提示
   useEffect(() => {
     try {
       setConsented(localStorage.getItem('mw_cookie_consent_v1') === 'true')
@@ -54,21 +35,23 @@ export function App({ initialState = {} }) {
     setConsented(true)
   }
 
-  // 手动刷新最新邮件列表
-  const loadMessages = async () => {
-    setLoading(true)
-    setError(null)
+  const copyCode = async (uid, code) => {
+    if (!code) return
     try {
-      const data = await fetchJSON(`/api/messages?limit=${limit}`)
-      setItems(Array.isArray(data.items) ? data.items : [])
-    } catch (e) {
-      setError(e.message)
-    } finally {
-      setLoading(false)
+      await navigator.clipboard.writeText(code)
+      setCopiedUid(uid)
+      setTimeout(() => setCopiedUid((prev) => (prev === uid ? null : prev)), 2000)
+    } catch {
+      setCopiedUid(null)
     }
   }
 
-  // 未登录（缺少会话 Cookie）时的保护页
+  // 通过服务端渲染重新加载
+  const reloadPage = () => {
+    window.location.reload()
+  }
+
+  // 未登录（缺少会话标记）时的保护页
   if (!allowed && hasKeyConfigured) {
     return (
       <main className="min-h-svh grid place-items-center px-6">
@@ -89,7 +72,7 @@ export function App({ initialState = {} }) {
             <h1 className="text-xl md:text-2xl font-semibold flex items-center gap-2">
               <Mail className="h-5 w-5" /> MailWatch
             </h1>
-            <p className="text-sm text-muted-foreground">标题筛选（正则）：{regexText}</p>
+            <p className="text-sm text-muted-foreground">验证码由 AI 自动提取</p>
           </div>
         </div>
       </header>
@@ -105,33 +88,34 @@ export function App({ initialState = {} }) {
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
           <h2 className="text-lg md:text-xl font-medium">最新邮件</h2>
           <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">条数</span>
-            <Input
-              type="number"
-              min={1}
-              max={500}
-              className="w-24"
-              value={limit}
-              onChange={(e) => setLimit(Math.max(1, Math.min(500, Number(e.target.value) || 1)))}
-            />
-            <Button onClick={loadMessages} className="gap-1">
+            <Button onClick={reloadPage} className="gap-1">
               <RefreshCcw className="h-4 w-4" /> 刷新
             </Button>
           </div>
         </div>
 
-        {loading && <p className="text-sm text-muted-foreground py-6">加载中...</p>}
-
-        {!loading && items.length === 0 && (
+        {items.length === 0 && (
           <div className="text-center text-muted-foreground py-12">暂无匹配邮件</div>
         )}
 
         <ul className="space-y-3">
           {items.map((item) => {
             const when = item.date ? new Date(item.date).toLocaleString() : ''
+            const parsed = (() => {
+              try {
+                return JSON.parse(item.captcha)
+              } catch {
+                return null
+              }
+            })()
+            const code = parsed && typeof parsed === 'object' ? parsed.code : item.captcha
+            const time = parsed && typeof parsed === 'object' ? parsed.time : null
             return (
               <li key={item.uid}>
-                <Card className="mw-card">
+                <Card
+                  className={`mw-card ${item.captcha ? 'cursor-pointer hover:bg-accent/40' : ''}`}
+                  onClick={() => copyCode(item.uid, code)}
+                >
                   <CardContent className="p-4">
                     <div className="flex flex-wrap items-center gap-2">
                       <div className="font-medium truncate flex-1" title={item.subject}>
@@ -148,6 +132,15 @@ export function App({ initialState = {} }) {
                         <Clock className="h-4 w-4" />
                         <span>{when}</span>
                       </div>
+                      {item.captcha && (
+                        <div className="inline-flex items-center gap-1">
+                          <span className="text-foreground">验证码</span>
+                          <span className="font-medium text-foreground underline underline-offset-2">
+                            {code}
+                          </span>
+                          {time && <span className="text-muted-foreground">({time})</span>}
+                        </div>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
@@ -169,7 +162,7 @@ export function App({ initialState = {} }) {
         </a>
       </footer>
 
-      {/* Cookie 同意提示（仅必要 Cookie：用于访问控制的会话）*/}
+      {/* 会话提示（仅必要会话：用于访问控制）*/}
       {!consented && (
         <div className="fixed inset-x-0 bottom-0 z-50">
           <div className="mx-auto max-w-3xl m-3 rounded-md border bg-background/95 backdrop-blur p-3 shadow-lg">
@@ -179,6 +172,14 @@ export function App({ initialState = {} }) {
               </p>
               <Button onClick={acceptConsent} className="shrink-0">我已知晓</Button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {copiedUid && (
+        <div className="fixed inset-x-0 bottom-6 z-50 flex justify-center pointer-events-none">
+          <div className="rounded-md bg-foreground text-background px-4 py-2 text-sm shadow-lg">
+            验证码已复制
           </div>
         </div>
       )}
