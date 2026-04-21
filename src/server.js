@@ -12,8 +12,8 @@ const path = require('path');
 const fs = require('fs');
 const { loadConfig } = require('./core/config');
 const { createRateLimiter } = require('./core/rateLimit');
-const { makeSid, setSessionCookie, getSession } = require('./core/session');
-const { fetchMessages } = require('./infra/imap');
+const { makeSid, setSessionCookie, getSession, requireSession } = require('./core/session');
+const { fetchMessages, fetchMessageSource } = require('./infra/imap');
 const { setupSSR } = require('./web/ssr');
 
 // 本地开发时优先加载项目根目录的环境变量文件（容器内由环境变量文件注入）
@@ -65,6 +65,56 @@ async function start() {
   // 初始化服务端渲染器（按环境切换）
   const { render } = await setupSSR(app);
 
+  // SSE：按 uid 下发单封邮件正文（受会话保护）
+  app.get(
+    '/stream/message',
+    createRateLimiter(CFG.rateLimit.sse, CFG.rateLimit.windowMs),
+    requireSession(sessions, CFG.secrets, { cookieName: SESSION_COOKIE, ttlMs: SESSION_TTL_MS }),
+    async (req, res) => {
+      const sendEvent = (event, payload) => {
+        res.write(`event: ${event}\n`);
+        res.write(`data: ${JSON.stringify(payload)}\n\n`);
+      };
+      try {
+        const uid = Number(req.query.uid);
+        if (!Number.isFinite(uid) || uid <= 0) {
+          res.status(400);
+          res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+          res.setHeader('Cache-Control', 'no-cache, no-transform');
+          res.setHeader('Connection', 'keep-alive');
+          sendEvent('app_error', { error: 'Bad Request' });
+          return res.end();
+        }
+
+        res.status(200);
+        res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+        res.setHeader('Cache-Control', 'no-cache, no-transform');
+        res.setHeader('Connection', 'keep-alive');
+        res.flushHeaders?.();
+
+        const data = await fetchMessageSource({ uid }, { imap: CFG.imap, mail: CFG.mail, log: CFG.log });
+        sendEvent('message', data);
+        return res.end();
+      } catch (err) {
+        const code = err?.code;
+        const status =
+          code === 'BAD_REQUEST' ? 400
+            : code === 'FORBIDDEN' ? 403
+              : code === 'NOT_FOUND' ? 404
+                : code === 'CONFIG' ? 500
+                  : 500;
+        if (!res.headersSent) {
+          res.status(status);
+          res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+          res.setHeader('Cache-Control', 'no-cache, no-transform');
+          res.setHeader('Connection', 'keep-alive');
+        }
+        sendEvent('app_error', { error: status === 500 ? 'Internal Error' : err?.message || 'Request Error' });
+        return res.end();
+      }
+    },
+  );
+
   // 定时清理过期会话，避免内存泄漏
   setInterval(() => {
     const now = Date.now();
@@ -78,7 +128,7 @@ async function start() {
     try {
       const url = req.originalUrl;
       const urlKey = (req.query.key || '').toString().trim();
-      const limit = 3;
+      const limit = CFG.imap.listLimit;
       const hasKeyConfigured = !!ACCESS_KEY;
       const session = getSession(req, sessions, { cookieName: SESSION_COOKIE, ttlMs: SESSION_TTL_MS });
       let allowed = !hasKeyConfigured || !!session;
@@ -96,7 +146,7 @@ async function start() {
       let error = null;
       if (allowed) {
         try {
-          items = await fetchMessages({ limit }, { imap: CFG.imap, ai: CFG.ai, log: CFG.log });
+          items = await fetchMessages({ limit }, { imap: CFG.imap, mail: CFG.mail, log: CFG.log });
         } catch (err) {
           error = err.code === 'CONFIG' ? err.message : `读取邮件失败：${err.message}`;
         }
@@ -110,6 +160,10 @@ async function start() {
         error,
         config: {
           imap: { host: CFG.imap.host || null, port: CFG.imap.port || null, secure: CFG.imap.tls },
+          filter: {
+            fromDomainSuffixWhitelist: CFG.mail.fromDomainSuffixWhitelist,
+            subjectWhitelist: CFG.mail.subjectWhitelist,
+          },
         },
       };
 
