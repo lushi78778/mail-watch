@@ -36,8 +36,8 @@ docker compose up -d --build
 
 邮件会被展示当且仅当同时满足：
 
-1. 发件人域名后缀命中 `MAIL_FROM_DOMAIN_SUFFIX_WHITELIST`（默认 `openai.com`）
-2. 主题命中 `WHITELIST` 任意关键词（例如 `验证码,ChatGPT,code,verify`）
+1. 发件人域名后缀命中 `MAIL_FROM_DOMAIN_SUFFIX_WHITELIST`
+2. 主题命中 `WHITELIST` 任意关键词（例如 `验证码,登录,code,verify`）
 3. 主题不是密码重置类（如 `password reset`、`重置密码`、`找回密码`）
 
 ## 环境变量
